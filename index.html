@@ -1,0 +1,2162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador de Cinemática y Cinética — Mecanismo de Cuatro Barras</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            cad: {
+              bg: '#f8fafc',
+              panel: '#ffffff',
+              border: '#cbd5e1',
+              accent: '#0f172a',
+              blue: '#2563eb',
+              emerald: '#059669',
+              amber: '#d97706',
+              rose: '#e11d48',
+              violet: '#7c3aed'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Estilos técnicos y barras de desplazamiento limpias */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+    .font-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      opacity: 1;
+    }
+    details > summary {
+      list-style: none;
+    }
+    details > summary::-webkit-details-marker {
+      display: none;
+    }
+    .canvas-container {
+      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- BARRA SUPERIOR (HEADER TÉCNICO) -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center shadow-inner">
+        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="5" cy="18" r="2" fill="currentColor"/>
+          <circle cx="19" cy="18" r="2" fill="currentColor"/>
+          <circle cx="8" cy="8" r="2"/>
+          <circle cx="17" cy="6" r="2"/>
+          <line x1="5" y1="18" x2="8" y2="8"/>
+          <line x1="8" y1="8" x2="17" y2="6"/>
+          <line x1="17" y1="6" x2="19" y2="18"/>
+          <line x1="3" y1="20" x2="21" y2="20" stroke-dasharray="2 2"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-sm sm:text-base font-bold tracking-tight leading-tight">Simulador de Cinemática y Cinética — Mecanismo de Cuatro Barras</h1>
+        <p class="text-xs text-slate-400">Laboratorio Virtual de Teoría de Máquinas y Mecanismos · Análisis Vectorial & Newton-Euler</p>
+      </div>
+    </div>
+
+    <!-- Selector de Presets y Acciones Rápidas -->
+    <div class="flex flex-wrap items-center gap-2">
+      <label for="presetSelect" class="text-xs text-slate-300 font-medium hidden sm:inline">Configuración Predefinida:</label>
+      <select id="presetSelect" class="bg-slate-800 border border-slate-700 text-xs text-white rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="crank_rocker">1. Manivela-Balancín (Grashof Estándar)</option>
+        <option value="double_crank">2. Doble Manivela (Arrastre)</option>
+        <option value="double_rocker">3. Doble Balancín (Grashof)</option>
+        <option value="quick_return">4. Manivela-Balancín Retorno Rápido</option>
+        <option value="non_grashof">5. Triple Balancín (No-Grashof)</option>
+        <option value="inclined_ground">6. Bancada Inclinada (O2 y O4 arbitrarios)</option>
+      </select>
+      <button id="btnResetView" title="Centrar vista" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-2.5 py-1.5 rounded-md transition flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+        <span>Centrar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENIDO PRINCIPAL: GRID DE 3 COLUMNAS EN DESKTOP -->
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 max-w-[1920px] w-full mx-auto">
+
+    <!-- COLUMNA IZQUIERDA: PARÁMETROS DE CONFIGURACIÓN (3 cols) -->
+    <aside class="lg:col-span-3 flex flex-col gap-2.5 overflow-y-auto lg:max-h-[calc(100vh-4.5rem)] pr-0.5">
+
+      <!-- Estado Grashof y Validez del Ensamblaje -->
+      <div id="statusBanner" class="bg-emerald-50 border border-emerald-300 rounded-lg p-2.5 text-xs shadow-sm">
+        <div class="flex items-center justify-between font-semibold text-emerald-900">
+          <span id="grashofTitle">✓ Ley de Grashof: Manivela-Balancín</span>
+          <span id="circuitBadge" class="px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 font-num text-[10px]">Circuito Abierto</span>
+        </div>
+        <p id="grashofDesc" class="text-emerald-800 mt-1 font-num text-[11px]">s + l = 0.550 m ≤ p + q = 0.650 m</p>
+      </div>
+
+      <!-- ACORDEÓN 1: GEOMETRÍA Y BANCADA -->
+      <details open class="bg-white border border-slate-300 rounded-lg shadow-sm overflow-hidden">
+        <summary class="bg-slate-100 hover:bg-slate-200/70 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between cursor-pointer select-none border-b border-slate-200">
+          <span>1. Geometría y Articulaciones Fijas</span>
+          <span class="text-slate-500 text-sm">▾</span>
+        </summary>
+        <div class="p-3 space-y-3 text-xs">
+          <div class="bg-slate-50 p-2 rounded border border-slate-200 space-y-2">
+            <div class="font-semibold text-slate-700 flex items-center justify-between">
+              <span>Articulaciones Fijas (m)</span>
+              <span class="text-[10px] text-slate-500">Sincronizado con L₁, θ₁</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] text-slate-600">O₂x (m)</label>
+                <input type="number" step="0.01" id="in_x2" class="w-full font-num border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600">O₂y (m)</label>
+                <input type="number" step="0.01" id="in_y2" class="w-full font-num border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600">O₄x (m)</label>
+                <input type="number" step="0.01" id="in_x4" class="w-full font-num border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600">O₄y (m)</label>
+                <input type="number" step="0.01" id="in_y4" class="w-full font-num border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-medium text-slate-700">Bancada L₁ (m)</label>
+              <input type="number" step="0.01" min="0.01" id="in_L1" class="w-full font-num border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-700">Ángulo θ₁ (°)</label>
+              <input type="number" step="0.5" id="in_theta1" class="w-full font-num border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-blue-700">Manivela L₂ (m)</label>
+              <input type="number" step="0.01" min="0.01" id="in_L2" class="w-full font-num border border-blue-300 bg-blue-50/30 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-emerald-700">Acoplador L₃ (m)</label>
+              <input type="number" step="0.01" min="0.01" id="in_L3" class="w-full font-num border border-emerald-300 bg-emerald-50/30 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-amber-700">Balancín L₄ (m)</label>
+              <input type="number" step="0.01" min="0.01" id="in_L4" class="w-full font-num border border-amber-300 bg-amber-50/30 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-700">Ensamblaje</label>
+              <select id="in_circuit" class="w-full border border-slate-300 rounded px-2 py-1 text-xs bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none">
+                <option value="1">Abierto (+)</option>
+                <option value="-1">Cruzado (−)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ACORDEÓN 2: INSTANTE CINEMÁTICO DE ENTRADA -->
+      <details open class="bg-white border border-slate-300 rounded-lg shadow-sm overflow-hidden">
+        <summary class="bg-slate-100 hover:bg-slate-200/70 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between cursor-pointer select-none border-b border-slate-200">
+          <span>2. Instante Cinemático (Entrada L₂)</span>
+          <span class="text-slate-500 text-sm">▾</span>
+        </summary>
+        <div class="p-3 space-y-3 text-xs">
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="font-semibold text-blue-800">Ángulo θ₂ (grados)</label>
+              <input type="number" step="0.5" id="in_theta2" class="w-24 font-num border border-blue-400 rounded px-2 py-0.5 text-right text-xs font-semibold text-blue-900">
+            </div>
+            <input type="range" min="0" max="360" step="0.5" id="slider_theta2" class="w-full accent-blue-600 cursor-pointer">
+            <div class="flex justify-between text-[10px] text-slate-400 font-num">
+              <span>0°</span>
+              <span>90°</span>
+              <span>180°</span>
+              <span>270°</span>
+              <span>360°</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-medium text-slate-700">Vel. Angular ω₂ (rad/s)</label>
+              <input type="number" step="0.5" id="in_omega2" class="w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-700">Acel. Angular α₂ (rad/s²)</label>
+              <input type="number" step="1" id="in_alpha2" class="w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ACORDEÓN 3: PROPIEDADES INERCIALES Y CARGAS -->
+      <details open class="bg-white border border-slate-300 rounded-lg shadow-sm overflow-hidden">
+        <summary class="bg-slate-100 hover:bg-slate-200/70 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-between cursor-pointer select-none border-b border-slate-200">
+          <span>3. Masas, Inercias y Torques</span>
+          <span class="text-slate-500 text-sm">▾</span>
+        </summary>
+        <div class="p-3 space-y-3 text-xs">
+          <div class="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-200">
+            <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-slate-700">
+              <input type="checkbox" id="chk_autoInertia" checked class="rounded text-blue-600">
+              <span>I_G = ¹⁄₁₂·m·L² automático</span>
+            </label>
+            <div class="flex items-center gap-1">
+              <span class="text-[11px] text-slate-600">g:</span>
+              <select id="in_gravity" class="font-num border border-slate-300 rounded px-1.5 py-0.5 text-[11px] bg-white">
+                <option value="9.81">9.81 m/s²</option>
+                <option value="0">0.00 (Horiz.)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-[11px] border-collapse">
+              <thead>
+                <tr class="text-slate-500 border-b border-slate-200 text-left">
+                  <th class="py-1">Barra</th>
+                  <th class="py-1">m (kg)</th>
+                  <th class="py-1">I_G (kg·m²)</th>
+                  <th class="py-1">r_G/L</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-num">
+                <tr>
+                  <td class="py-1 font-sans font-semibold text-blue-700">L₂</td>
+                  <td class="py-1 pr-1"><input type="number" step="0.1" min="0" id="in_m2" class="w-14 border border-slate-300 rounded px-1 py-0.5"></td>
+                  <td class="py-1 pr-1"><input type="number" step="0.001" min="0" id="in_I2" class="w-16 border border-slate-300 rounded px-1 py-0.5 bg-slate-50"></td>
+                  <td class="py-1"><input type="number" step="0.05" min="0" max="1" id="in_cg2" class="w-12 border border-slate-300 rounded px-1 py-0.5"></td>
+                </tr>
+                <tr>
+                  <td class="py-1 font-sans font-semibold text-emerald-700">L₃</td>
+                  <td class="py-1 pr-1"><input type="number" step="0.1" min="0" id="in_m3" class="w-14 border border-slate-300 rounded px-1 py-0.5"></td>
+                  <td class="py-1 pr-1"><input type="number" step="0.001" min="0" id="in_I3" class="w-16 border border-slate-300 rounded px-1 py-0.5 bg-slate-50"></td>
+                  <td class="py-1"><input type="number" step="0.05" min="0" max="1" id="in_cg3" class="w-12 border border-slate-300 rounded px-1 py-0.5"></td>
+                </tr>
+                <tr>
+                  <td class="py-1 font-sans font-semibold text-amber-700">L₄</td>
+                  <td class="py-1 pr-1"><input type="number" step="0.1" min="0" id="in_m4" class="w-14 border border-slate-300 rounded px-1 py-0.5"></td>
+                  <td class="py-1 pr-1"><input type="number" step="0.001" min="0" id="in_I4" class="w-16 border border-slate-300 rounded px-1 py-0.5 bg-slate-50"></td>
+                  <td class="py-1"><input type="number" step="0.05" min="0" max="1" id="in_cg4" class="w-12 border border-slate-300 rounded px-1 py-0.5"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="bg-amber-50/70 border border-amber-200 rounded p-2 space-y-2">
+            <div class="font-semibold text-amber-900 flex items-center justify-between">
+              <span>Cargas / Torques Externos (N·m)</span>
+              <span class="text-[10px] font-normal text-amber-700">Sentido + CCW</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] text-slate-600">Torque en Acoplador T₃</label>
+                <input type="number" step="0.5" id="in_T3" class="w-full font-num border border-slate-300 bg-white rounded px-2 py-1 text-xs">
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-600">Torque en Balancín T₄</label>
+                <input type="number" step="0.5" id="in_T4" class="w-full font-num border border-slate-300 bg-white rounded px-2 py-1 text-xs">
+              </div>
+            </div>
+            <div class="pt-1 border-t border-amber-200/80">
+              <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-slate-800">
+                <input type="checkbox" id="chk_solveT2" checked class="rounded text-blue-600">
+                <span>Calcular Torque Motor T₂ desconocido (Dinámica Inversa)</span>
+              </label>
+              <div id="knownT2Container" class="mt-1.5 hidden">
+                <label class="block text-[10px] text-slate-600">Torque Aplicado T₂ conocido (N·m) — Muestra residuo dinámico:</label>
+                <input type="number" step="0.5" id="in_T2_known" value="0" class="w-full font-num border border-slate-300 bg-white rounded px-2 py-1 text-xs">
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+    </aside>
+
+    <!-- COLUMNA CENTRAL: LIENZO INTERACTIVO CAD 2D Y CONTROLES VISUALES (5 cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-2.5">
+      <div class="bg-white border border-slate-300 rounded-lg shadow-sm flex flex-col flex-1 min-h-[420px] lg:min-h-[calc(100vh-4.5rem)] overflow-hidden">
+
+        <!-- Barra de herramientas del Canvas -->
+        <div class="bg-slate-100 border-b border-slate-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex items-center gap-1.5">
+            <button id="btnPlayPause" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-2.5 py-1 rounded flex items-center gap-1 shadow-sm transition">
+              <span id="playIcon">▶</span>
+              <span id="playText">Simular</span>
+            </button>
+            <button id="btnStepBack" title="Retroceder 1°" class="bg-white hover:bg-slate-200 border border-slate-300 text-slate-700 px-2 py-1 rounded font-num">−1°</button>
+            <button id="btnStepFwd" title="Avanzar 1°" class="bg-white hover:bg-slate-200 border border-slate-300 text-slate-700 px-2 py-1 rounded font-num">+1°</button>
+            <button id="btnClearTrace" title="Limpiar trayectoria" class="bg-white hover:bg-slate-200 border border-slate-300 text-slate-600 px-2 py-1 rounded text-[11px]">Limpiar traza</button>
+          </div>
+
+          <!-- Capas Vectoriales -->
+          <div class="flex flex-wrap items-center gap-2 text-[11px]">
+            <label class="flex items-center gap-1 cursor-pointer select-none bg-white px-2 py-0.5 rounded border border-cyan-300">
+              <input type="checkbox" id="layerVel" checked class="accent-cyan-600">
+              <span class="font-semibold text-cyan-800">Velocidades (v)</span>
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer select-none bg-white px-2 py-0.5 rounded border border-amber-300">
+              <input type="checkbox" id="layerAcc" class="accent-amber-600">
+              <span class="font-semibold text-amber-800">Aceleraciones (a)</span>
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer select-none bg-white px-2 py-0.5 rounded border border-rose-300">
+              <input type="checkbox" id="layerForce" checked class="accent-rose-600">
+              <span class="font-semibold text-rose-800">Fuerzas (F)</span>
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer select-none bg-white px-2 py-0.5 rounded border border-slate-300">
+              <input type="checkbox" id="layerTrace" checked class="accent-blue-600">
+              <span class="font-medium text-slate-700">Trayectoria</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Contenedor del Canvas Responsivo -->
+        <div id="canvasWrapper" class="relative flex-1 w-full h-full canvas-container overflow-hidden cursor-grab active:cursor-grabbing">
+          <canvas id="mechCanvas" class="block w-full h-full"></canvas>
+
+          <!-- Overlay superior izquierdo: Lectura rápida en vivo -->
+          <div class="absolute top-2.5 left-2.5 bg-white/95 backdrop-blur-sm border border-slate-300 rounded-md px-2.5 py-1.5 text-[11px] font-num shadow-sm pointer-events-none space-y-0.5">
+            <div class="text-slate-500 font-sans font-semibold text-[10px] uppercase">Estado Instantáneo</div>
+            <div>θ₂ = <span id="hud_t2" class="font-bold text-blue-700">60.0°</span> | θ₃ = <span id="hud_t3" class="font-bold text-emerald-700">0.0°</span> | θ₄ = <span id="hud_t4" class="font-bold text-amber-700">0.0°</span></div>
+            <div>ω₃ = <span id="hud_w3">0.00</span> rad/s | ω₄ = <span id="hud_w4">0.00</span> rad/s</div>
+            <div>T₂ req = <span id="hud_T2" class="font-bold text-rose-700">0.00</span> N·m</div>
+          </div>
+
+          <!-- Overlay superior derecho: Leyenda Flotante de Vectores y Escalas -->
+          <div id="vectorLegend" class="absolute top-2.5 right-2.5 bg-white/95 backdrop-blur-sm border border-slate-300 rounded-md px-2.5 py-1.5 text-[10.5px] shadow-sm pointer-events-none space-y-1 max-w-[235px]">
+            <div class="text-slate-500 font-sans font-semibold text-[10px] uppercase border-b border-slate-200 pb-0.5">Leyenda Vectorial (Escala Auto)</div>
+            <div id="leg_vel" class="flex items-center justify-between gap-2 text-cyan-800 font-medium">
+              <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-0.5 bg-cyan-600"></span>Velocidad (v)</span>
+              <span id="leg_vel_scale" class="font-num text-[10px] text-slate-600">—</span>
+            </div>
+            <div id="leg_acc" class="hidden flex items-center justify-between gap-2 text-amber-700 font-medium">
+              <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-0.5 bg-amber-600"></span>Aceleración (a)</span>
+              <span id="leg_acc_scale" class="font-num text-[10px] text-slate-600">—</span>
+            </div>
+            <div id="leg_force" class="flex items-center justify-between gap-2 text-rose-700 font-medium">
+              <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-0.5 bg-rose-600"></span>Fuerzas (F_ij)</span>
+              <span id="leg_force_scale" class="font-num text-[10px] text-slate-600">—</span>
+            </div>
+          </div>
+
+          <!-- Overlay inferior: Escala de vectores y controles de zoom -->
+          <div class="absolute bottom-2.5 left-2.5 right-2.5 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+            <div class="bg-white/95 backdrop-blur-sm border border-slate-300 rounded px-2.5 py-1 text-[10.5px] text-slate-700 pointer-events-auto flex items-center gap-2 shadow-sm">
+              <span class="font-medium">Multiplicador Vectores:</span>
+              <input type="range" id="vecScaleSlider" min="0.5" max="2.5" step="0.1" value="1.0" class="w-24 accent-blue-600 cursor-pointer">
+              <span id="vecScaleVal" class="font-num font-semibold text-blue-700 w-8">1.0x</span>
+              <span class="text-slate-400 hidden sm:inline">| Arrastra para mover · Rueda para zoom</span>
+            </div>
+            <div class="bg-white/95 backdrop-blur-sm border border-slate-300 rounded px-2.5 py-1 text-[10.5px] font-num text-slate-700 shadow-sm">
+              Ángulo transmisión μ = <span id="hud_mu" class="font-bold">0.0°</span>
+            </div>
+          </div>
+
+          <!-- Mensaje de Error si el mecanismo no cierra -->
+          <div id="assemblyErrorOverlay" class="hidden absolute inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-6 text-center">
+            <div class="bg-white border-2 border-rose-500 rounded-xl p-5 max-w-md shadow-xl">
+              <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-2 font-bold text-lg">!</div>
+              <h3 class="font-bold text-slate-900 text-sm">Configuración Geométrica Imposible</h3>
+              <p id="assemblyErrorMsg" class="text-xs text-slate-600 mt-1">Para el ángulo θ₂ seleccionado, los eslabones L₃ y L₄ no alcanzan a conectarse (el lazo vectorial no cierra).</p>
+              <p class="text-[11px] text-blue-700 mt-2 font-medium">Ajusta θ₂ dentro del rango admisible o modifica las longitudes de los eslabones.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COLUMNA DERECHA: SOLUCIONADOR ANALÍTICO PASO A PASO (4 cols) -->
+    <section class="lg:col-span-4 bg-white border border-slate-300 rounded-lg shadow-sm flex flex-col lg:max-h-[calc(100vh-4.5rem)] overflow-hidden">
+
+      <!-- Navegación de Pestañas del Solucionador -->
+      <div class="bg-slate-100 border-b border-slate-200 px-2 pt-2 flex gap-1 overflow-x-auto text-xs font-semibold">
+        <button data-tab="tab-pos" class="tab-btn active px-2.5 py-2 rounded-t-md border-t border-x border-slate-300 bg-white text-blue-700 whitespace-nowrap">1. Posición</button>
+        <button data-tab="tab-vel" class="tab-btn px-2.5 py-2 rounded-t-md border-t border-x border-transparent text-slate-600 hover:text-slate-900 whitespace-nowrap">2. Velocidades</button>
+        <button data-tab="tab-acc" class="tab-btn px-2.5 py-2 rounded-t-md border-t border-x border-transparent text-slate-600 hover:text-slate-900 whitespace-nowrap">3. Aceleraciones</button>
+        <button data-tab="tab-kin" class="tab-btn px-2.5 py-2 rounded-t-md border-t border-x border-transparent text-slate-600 hover:text-slate-900 whitespace-nowrap">4. Cinética (F y T)</button>
+        <button data-tab="tab-quiz" class="tab-btn px-2.5 py-2 rounded-t-md border-t border-x border-transparent text-amber-700 hover:text-amber-900 whitespace-nowrap">★ Práctica</button>
+      </div>
+
+      <!-- Contenido Scrolleable de las Pestañas -->
+      <div id="solverContent" class="p-3.5 overflow-y-auto flex-1 text-xs space-y-3">
+
+        <!-- PESTAÑA 1: ANÁLISIS DE POSICIÓN -->
+        <div id="tab-pos" class="tab-pane space-y-3">
+          <div class="bg-blue-50/70 border border-blue-200 rounded-lg p-2.5">
+            <h2 class="font-bold text-blue-950 text-xs mb-1">Ecuación de Cierre Vectorial (Freudenstein)</h2>
+            <p class="font-num text-[11px] text-blue-900 bg-white p-1.5 rounded border border-blue-100">
+              r₂·e^(iθ₂) + r₃·e^(iθ₃) − r₄·e^(iθ₄) − r₁·e^(iθ₁) = 0
+            </p>
+            <p class="text-[11px] text-slate-600 mt-1.5">
+              Se expresa θ₃ y θ₄ en el marco relativo a la bancada (θ' = θ − θ₁) mediante las constantes K₁, K₂, K₃ y la sustitución de ángulo mitad tan(θ'/2).
+            </p>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+            <h3 class="font-bold text-slate-800">Paso 1.1: Constantes de Freudenstein y Discriminante</h3>
+            <div id="pos_constants" class="font-num text-[11px] grid grid-cols-2 gap-1.5 bg-slate-50 p-2 rounded"></div>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+            <h3 class="font-bold text-slate-800">Paso 1.2: Ángulos de los Eslabones y Transmisión</h3>
+            <div id="pos_angles" class="font-num text-[11px] space-y-1"></div>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+            <h3 class="font-bold text-slate-800">Paso 1.3: Coordenadas Globales (X, Y) en metros</h3>
+            <div id="pos_coords" class="font-num text-[11px] overflow-x-auto"></div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 2: ANÁLISIS DE VELOCIDADES -->
+        <div id="tab-vel" class="tab-pane hidden space-y-3">
+          <div class="bg-emerald-50/70 border border-emerald-200 rounded-lg p-2.5">
+            <h2 class="font-bold text-emerald-950 text-xs mb-1">Derivada Temporal del Lazo Vectorial</h2>
+            <p class="font-num text-[11px] text-emerald-900 bg-white p-1.5 rounded border border-emerald-100">
+              −L₂ω₂·sinθ₂ − L₃ω₃·sinθ₃ + L₄ω₄·sinθ₄ = 0<br>
+              &nbsp;L₂ω₂·cosθ₂ + L₃ω₃·cosθ₃ − L₄ω₄·cosθ₄ = 0
+            </p>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-2">
+            <h3 class="font-bold text-slate-800">Paso 2.1: Sistema Lineal 2×2 (Jacobiano)</h3>
+            <div id="vel_matrix" class="font-num text-[11px] bg-slate-50 p-2 rounded overflow-x-auto"></div>
+            <div id="vel_omegas" class="font-num text-[11px] bg-emerald-50 border border-emerald-200 p-2 rounded font-semibold text-emerald-950"></div>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+            <h3 class="font-bold text-slate-800">Paso 2.2: Velocidades Lineales (Articulaciones y CG)</h3>
+            <p class="text-[11px] text-slate-500">Calculadas como <b>v_P = v_O + ω × r_P/O</b></p>
+            <div id="vel_linear" class="font-num text-[11px] overflow-x-auto"></div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 3: ANÁLISIS DE ACELERACIONES -->
+        <div id="tab-acc" class="tab-pane hidden space-y-3">
+          <div class="bg-violet-50/70 border border-violet-200 rounded-lg p-2.5">
+            <h2 class="font-bold text-violet-950 text-xs mb-1">Segunda Derivada del Lazo Vectorial</h2>
+            <p class="font-num text-[11px] text-violet-900 bg-white p-1.5 rounded border border-violet-100">
+              a_A^t + a_A^n + a_{B/A}^t + a_{B/A}^n = a_B^t + a_B^n
+            </p>
+            <p class="text-[11px] text-slate-600 mt-1">
+              Los términos centrípetos (ω²) son conocidos y pasan al lado derecho del sistema lineal 2×2 para despejar α₃ y α₄.
+            </p>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-2">
+            <h3 class="font-bold text-slate-800">Paso 3.1: Sistema Lineal 2×2 para α₃ y α₄</h3>
+            <div id="acc_matrix" class="font-num text-[11px] bg-slate-50 p-2 rounded overflow-x-auto"></div>
+            <div id="acc_alphas" class="font-num text-[11px] bg-violet-50 border border-violet-200 p-2 rounded font-semibold text-violet-950"></div>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+            <h3 class="font-bold text-slate-800">Paso 3.2: Aceleraciones Lineales (Normal + Tangencial)</h3>
+            <div id="acc_linear" class="font-num text-[11px] overflow-x-auto"></div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 4: ANÁLISIS CINÉTICO (NEWTON-EULER 9x9) -->
+        <div id="tab-kin" class="tab-pane hidden space-y-3">
+          <div class="bg-rose-50/70 border border-rose-200 rounded-lg p-2.5">
+            <h2 class="font-bold text-rose-950 text-xs mb-1">Formulación Matricial de Newton-Euler (9×9)</h2>
+            <p class="text-[11px] text-slate-700">
+              Para cada eslabón móvil <i>i</i> ∈ {2, 3, 4} se plantean 3 ecuaciones de movimiento:
+              <span class="font-num block mt-1 bg-white p-1 rounded border border-rose-100 text-rose-950">
+                ΣF_x = m_i · a_{Gix} &nbsp;|&nbsp; ΣF_y = m_i · a_{Giy} &nbsp;|&nbsp; ΣM_{Gi} = I_{Gi} · α_i
+              </span>
+            </p>
+          </div>
+
+          <div id="kin_torque_summary" class="bg-slate-900 text-white rounded-lg p-3 font-num text-xs shadow-sm"></div>
+
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+            <h3 class="font-bold text-slate-800">Paso 4.1: Fuerzas Internas en Articulaciones (N)</h3>
+            <p class="text-[10px] text-slate-500">Notación F_ij: fuerza que ejerce el eslabón <i>i</i> sobre el eslabón <i>j</i> (F_ji = −F_ij).</p>
+            <div id="kin_forces" class="font-num text-[11px] overflow-x-auto"></div>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg p-2.5 space-y-2">
+            <h3 class="font-bold text-slate-800">Paso 4.2: Ecuaciones de Cuerpo Libre por Eslabón</h3>
+            <div id="kin_fbd_equations" class="font-num text-[10.5px] space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 5: MODO PRÁCTICA / AUTOEVALUACIÓN -->
+        <div id="tab-quiz" class="tab-pane hidden space-y-3">
+          <div class="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <h2 class="font-bold text-amber-950 text-xs">Modo Autoevaluación para Estudiantes</h2>
+              <button id="btnGenProblem" class="bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold px-2.5 py-1 rounded shadow-sm transition">
+                🎲 Nuevo Problema Aleatorio
+              </button>
+            </div>
+            <p class="text-[11px] text-amber-900">
+              Resuelve manualmente en tu cuaderno el mecanismo configurado actualmente e ingresa tus resultados aquí. Se validará con una <b>tolerancia del ±2%</b>.
+            </p>
+            <label class="flex items-center gap-1.5 text-[11px] font-medium text-slate-800 pt-1">
+              <input type="checkbox" id="chk_hideHud" class="rounded text-amber-600">
+              <span>Ocultar respuestas en el HUD del lienzo mientras practico</span>
+            </label>
+          </div>
+
+          <form id="quizForm" class="space-y-2.5">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                <label class="block text-[11px] font-semibold text-slate-700">Ángulo θ₃ (°)</label>
+                <input type="number" step="any" id="ans_t3" placeholder="Ej: 24.5" class="mt-1 w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+                <div id="fb_t3" class="text-[10px] mt-1 font-medium"></div>
+              </div>
+              <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                <label class="block text-[11px] font-semibold text-slate-700">Ángulo θ₄ (°)</label>
+                <input type="number" step="any" id="ans_t4" placeholder="Ej: 78.2" class="mt-1 w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+                <div id="fb_t4" class="text-[10px] mt-1 font-medium"></div>
+              </div>
+              <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                <label class="block text-[11px] font-semibold text-slate-700">Vel. Angular ω₃ (rad/s)</label>
+                <input type="number" step="any" id="ans_w3" placeholder="Ej: -3.42" class="mt-1 w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+                <div id="fb_w3" class="text-[10px] mt-1 font-medium"></div>
+              </div>
+              <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                <label class="block text-[11px] font-semibold text-slate-700">Vel. Angular ω₄ (rad/s)</label>
+                <input type="number" step="any" id="ans_w4" placeholder="Ej: 4.15" class="mt-1 w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+                <div id="fb_w4" class="text-[10px] mt-1 font-medium"></div>
+              </div>
+              <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                <label class="block text-[11px] font-semibold text-slate-700">Acel. Angular α₃ (rad/s²)</label>
+                <input type="number" step="any" id="ans_a3" placeholder="Ej: 18.4" class="mt-1 w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+                <div id="fb_a3" class="text-[10px] mt-1 font-medium"></div>
+              </div>
+              <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                <label class="block text-[11px] font-semibold text-slate-700">Acel. Angular α₄ (rad/s²)</label>
+                <input type="number" step="any" id="ans_a4" placeholder="Ej: -25.1" class="mt-1 w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+                <div id="fb_a4" class="text-[10px] mt-1 font-medium"></div>
+              </div>
+              <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                <label class="block text-[11px] font-semibold text-slate-700">Magnitud |F₁₄| en O₄ (N)</label>
+                <input type="number" step="any" id="ans_F14" placeholder="Ej: 45.8" class="mt-1 w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+                <div id="fb_F14" class="text-[10px] mt-1 font-medium"></div>
+              </div>
+              <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                <label class="block text-[11px] font-semibold text-slate-700">Torque Motor T₂ (N·m)</label>
+                <input type="number" step="any" id="ans_T2" placeholder="Ej: 12.35" class="mt-1 w-full font-num border border-slate-300 rounded px-2 py-1 text-xs">
+                <div id="fb_T2" class="text-[10px] mt-1 font-medium"></div>
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-md shadow-sm transition">
+                Verificar Mis Cálculos
+              </button>
+              <button type="button" id="btnClearQuiz" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium px-3 py-2 rounded-md transition">
+                Limpiar
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /**
+     * ============================================================================
+     * MOTOR MATEMÁTICO, CINEMÁTICO Y CINÉTICO DE MECANISMO DE CUATRO BARRAS
+     * ============================================================================
+     */
+
+    const state = {
+      x2: 0.0,
+      y2: 0.0,
+      x4: 0.40,
+      y4: 0.0,
+      L1: 0.40,
+      theta1: 0.0,
+      L2: 0.15,
+      L3: 0.35,
+      L4: 0.25,
+      circuit: 1,
+
+      theta2Deg: 60.0,
+      omega2: 10.0,
+      alpha2: 0.0,
+
+      m2: 1.2,
+      m3: 2.5,
+      m4: 1.8,
+      I2: 0.00225,
+      I3: 0.02552,
+      I4: 0.00938,
+      cg2: 0.5,
+      cg3: 0.5,
+      cg4: 0.5,
+      autoInertia: true,
+      gravity: 9.81,
+
+      T3: 0.0,
+      T4: -15.0,
+      solveT2: true,
+      T2_known: 0.0,
+
+      playing: false,
+      lastTimestamp: null,
+      tracePoints: [],
+      view: {
+        scale: 520,
+        offsetX: 0,
+        offsetY: 0,
+        initialized: false
+      },
+      vecScale: 1.0,
+      layers: {
+        vel: true,
+        acc: false,
+        force: true,
+        trace: true
+      },
+      hideHud: false
+    };
+
+    const PRESETS = {
+      crank_rocker: {
+        x2: 0, y2: 0, x4: 0.40, y4: 0, L2: 0.15, L3: 0.35, L4: 0.25, circuit: 1,
+        theta2Deg: 60, omega2: 10, alpha2: 0, m2: 1.2, m3: 2.5, m4: 1.8, T3: 0, T4: -15
+      },
+      double_crank: {
+        x2: 0, y2: 0, x4: 0.14, y4: 0, L2: 0.25, L3: 0.32, L4: 0.28, circuit: 1,
+        theta2Deg: 45, omega2: 8, alpha2: 12, m2: 1.5, m3: 2.0, m4: 1.6, T3: -5, T4: -10
+      },
+      double_rocker: {
+        x2: 0, y2: 0, x4: 0.32, y4: 0, L2: 0.28, L3: 0.14, L4: 0.30, circuit: 1,
+        theta2Deg: 115, omega2: 5, alpha2: -8, m2: 1.8, m3: 1.0, m4: 2.0, T3: 0, T4: 8
+      },
+      quick_return: {
+        x2: 0, y2: 0, x4: 0.35, y4: 0.12, L2: 0.12, L3: 0.36, L4: 0.24, circuit: 1,
+        theta2Deg: 30, omega2: 12, alpha2: 0, m2: 1.0, m3: 2.8, m4: 1.9, T3: 0, T4: -20
+      },
+      non_grashof: {
+        x2: 0, y2: 0, x4: 0.42, y4: 0, L2: 0.22, L3: 0.20, L4: 0.25, circuit: 1,
+        theta2Deg: 85, omega2: 6, alpha2: 5, m2: 1.4, m3: 1.4, m4: 1.5, T3: 0, T4: -5
+      },
+      inclined_ground: {
+        x2: 0.05, y2: 0.05, x4: 0.42, y4: 0.20, L2: 0.14, L3: 0.34, L4: 0.24, circuit: 1,
+        theta2Deg: 75, omega2: 10, alpha2: 15, m2: 1.1, m3: 2.2, m4: 1.7, T3: -4, T4: -12
+      }
+    };
+
+    const DEG2RAD = Math.PI / 180;
+    const RAD2DEG = 180 / Math.PI;
+
+    function normalizeAngleRad(rad) {
+      let a = rad % (2 * Math.PI);
+      if (a <= -Math.PI) a += 2 * Math.PI;
+      if (a > Math.PI) a -= 2 * Math.PI;
+      return a;
+    }
+
+    function normalizeAngleDeg360(deg) {
+      let d = deg % 360;
+      if (d < 0) d += 360;
+      return d;
+    }
+
+    /**
+     * Resuelve un sistema lineal Ax = b de dimensión n x n mediante Eliminación Gaussiana con pivoteo parcial.
+     */
+    function solveLinearSystem(A, b) {
+      const n = b.length;
+      const M = A.map((row, i) => [...row, b[i]]);
+
+      for (let col = 0; col < n; col++) {
+        let maxRow = col;
+        let maxVal = Math.abs(M[col][col]);
+        for (let row = col + 1; row < n; row++) {
+          const val = Math.abs(M[row][col]);
+          if (val > maxVal) {
+            maxVal = val;
+            maxRow = row;
+          }
+        }
+        if (maxVal < 1e-12) return null;
+
+        if (maxRow !== col) {
+          const tmp = M[col];
+          M[col] = M[maxRow];
+          M[maxRow] = tmp;
+        }
+
+        for (let row = col + 1; row < n; row++) {
+          const factor = M[row][col] / M[col][col];
+          for (let j = col; j <= n; j++) {
+            M[row][j] -= factor * M[col][j];
+          }
+        }
+      }
+
+      const x = new Array(n).fill(0);
+      for (let i = n - 1; i >= 0; i--) {
+        let sum = M[i][n];
+        for (let j = i + 1; j < n; j++) {
+          sum -= M[i][j] * x[j];
+        }
+        x[i] = sum / M[i][i];
+      }
+      return x;
+    }
+
+    /**
+     * Evalúa la condición de Grashof y clasifica el mecanismo.
+     */
+    function evaluateGrashof(L1, L2, L3, L4) {
+      const links = [L1, L2, L3, L4].sort((a, b) => a - b);
+      const s = links[0];
+      const p = links[1];
+      const q = links[2];
+      const l = links[3];
+      const isGrashof = (s + l) <= (p + q) + 1e-9;
+
+      let type = '';
+      if (!isGrashof) {
+        type = 'Triple Balancín (No-Grashof)';
+      } else {
+        if (Math.abs(s - L1) < 1e-6) type = 'Doble Manivela (Arrastre)';
+        else if (Math.abs(s - L2) < 1e-6) type = 'Manivela-Balancín';
+        else if (Math.abs(s - L3) < 1e-6) type = 'Doble Balancín de Grashof';
+        else if (Math.abs(s - L4) < 1e-6) type = 'Balancín-Manivela';
+        else type = 'Mecanismo de Grashof';
+      }
+      return { s, p, q, l, isGrashof, type };
+    }
+
+    /**
+     * Resuelve completamente la Cinemática y Cinética para el estado actual.
+     */
+    function solveMechanism(st) {
+      const { x2, y2, x4, y4, L1, theta1, L2, L3, L4, circuit } = st;
+      if (L1 <= 1e-6 || L2 <= 1e-6 || L3 <= 1e-6 || L4 <= 1e-6) {
+        return { valid: false, reason: 'Todas las longitudes de eslabones deben ser mayores a cero.' };
+      }
+
+      const theta2 = st.theta2Deg * DEG2RAD;
+      const t2_rel = theta2 - theta1;
+
+      // 1. ANÁLISIS DE POSICIÓN (Ecuaciones de Freudenstein)
+      const K1 = L1 / L2;
+      const K2 = L1 / L4;
+      const K3 = (L2 * L2 - L3 * L3 + L4 * L4 + L1 * L1) / (2 * L2 * L4);
+
+      const K4 = L1 / L3;
+      const K5 = (L4 * L4 - L1 * L1 - L2 * L2 - L3 * L3) / (2 * L2 * L3);
+
+      const cosT2 = Math.cos(t2_rel);
+      const sinT2 = Math.sin(t2_rel);
+
+      const A = cosT2 - K1 - K2 * cosT2 + K3;
+      const B = -2 * sinT2;
+      const C = K1 - (K2 + 1) * cosT2 + K3;
+
+      const D = cosT2 - K1 + K4 * cosT2 + K5;
+      const E = -2 * sinT2;
+      const F = K1 + (K4 - 1) * cosT2 + K5;
+
+      const disc4 = B * B - 4 * A * C;
+      const disc3 = E * E - 4 * D * F;
+
+      if (disc4 < -1e-9 || disc3 < -1e-9) {
+        return {
+          valid: false,
+          reason: `Discriminante negativo (Δ₄ = ${disc4.toFixed(4)}). Para θ₂ = ${st.theta2Deg.toFixed(1)}°, los eslabones L₃ y L₄ no pueden cerrarse.`
+        };
+      }
+
+      const sqrtDisc4 = Math.sqrt(Math.max(0, disc4));
+      const sqrtDisc3 = Math.sqrt(Math.max(0, disc3));
+
+      // Nota: circuit = +1 corresponde al ensamblaje abierto estándar (-sqrt)
+      const sign = -circuit;
+      const t4_rel = 2 * Math.atan2(-B + sign * sqrtDisc4, 2 * A);
+      const t3_rel = 2 * Math.atan2(-E + sign * sqrtDisc3, 2 * D);
+
+      const theta3 = normalizeAngleRad(t3_rel + theta1);
+      const theta4 = normalizeAngleRad(t4_rel + theta1);
+
+      // Coordenadas globales de los nodos
+      const O2 = { x: x2, y: y2 };
+      const O4 = { x: x4, y: y4 };
+      const A_pt = {
+        x: x2 + L2 * Math.cos(theta2),
+        y: y2 + L2 * Math.sin(theta2)
+      };
+      const B_pt = {
+        x: x4 + L4 * Math.cos(theta4),
+        y: y4 + L4 * Math.sin(theta4)
+      };
+
+      // Centros de gravedad
+      const rG2 = st.cg2 * L2;
+      const rG3 = st.cg3 * L3;
+      const rG4 = st.cg4 * L4;
+
+      const G2 = {
+        x: O2.x + rG2 * Math.cos(theta2),
+        y: O2.y + rG2 * Math.sin(theta2)
+      };
+      const G3 = {
+        x: A_pt.x + rG3 * Math.cos(theta3),
+        y: A_pt.y + rG3 * Math.sin(theta3)
+      };
+      const G4 = {
+        x: O4.x + rG4 * Math.cos(theta4),
+        y: O4.y + rG4 * Math.sin(theta4)
+      };
+
+      // Ángulo de transmisión mu entre L3 y L4
+      let mu = Math.abs(normalizeAngleRad(theta4 - theta3));
+      if (mu > Math.PI / 2) mu = Math.PI - mu;
+
+      // 2. ANÁLISIS DE VELOCIDADES
+      const w2 = st.omega2;
+      const s2 = Math.sin(theta2), c2 = Math.cos(theta2);
+      const s3 = Math.sin(theta3), c3 = Math.cos(theta3);
+      const s4 = Math.sin(theta4), c4 = Math.cos(theta4);
+
+      const J11 = -L3 * s3, J12 = L4 * s4;
+      const J21 =  L3 * c3, J22 = -L4 * c4;
+      const rhsV1 = L2 * w2 * s2;
+      const rhsV2 = -L2 * w2 * c2;
+
+      const detJ = J11 * J22 - J12 * J21;
+      if (Math.abs(detJ) < 1e-10) {
+        return { valid: false, reason: 'Configuración de punto muerto / singularidad cinemática (det(J) ≈ 0).' };
+      }
+
+      const w3 = (rhsV1 * J22 - rhsV2 * J12) / detJ;
+      const w4 = (J11 * rhsV2 - J21 * rhsV1) / detJ;
+
+      const vA = { x: -L2 * w2 * s2, y: L2 * w2 * c2 };
+      vA.mag = Math.hypot(vA.x, vA.y);
+
+      const vBA = { x: -L3 * w3 * s3, y: L3 * w3 * c3 };
+      const vB = { x: -L4 * w4 * s4, y: L4 * w4 * c4 };
+      vB.mag = Math.hypot(vB.x, vB.y);
+
+      const vG2 = { x: -rG2 * w2 * s2, y: rG2 * w2 * c2 };
+      vG2.mag = Math.hypot(vG2.x, vG2.y);
+
+      const vG3 = { x: vA.x - rG3 * w3 * s3, y: vA.y + rG3 * w3 * c3 };
+      vG3.mag = Math.hypot(vG3.x, vG3.y);
+
+      const vG4 = { x: -rG4 * w4 * s4, y: rG4 * w4 * c4 };
+      vG4.mag = Math.hypot(vG4.x, vG4.y);
+
+      // 3. ANÁLISIS DE ACELERACIONES
+      const a2 = st.alpha2;
+      const rhsA1 = L2 * a2 * s2 + L2 * w2 * w2 * c2 + L3 * w3 * w3 * c3 - L4 * w4 * w4 * c4;
+      const rhsA2 = -L2 * a2 * c2 + L2 * w2 * w2 * s2 + L3 * w3 * w3 * s3 - L4 * w4 * w4 * s4;
+
+      const alpha3 = (rhsA1 * J22 - rhsA2 * J12) / detJ;
+      const alpha4 = (J11 * rhsA2 - J21 * rhsA1) / detJ;
+
+      const aA = {
+        x: -L2 * a2 * s2 - L2 * w2 * w2 * c2,
+        y:  L2 * a2 * c2 - L2 * w2 * w2 * s2
+      };
+      aA.mag = Math.hypot(aA.x, aA.y);
+
+      const aB = {
+        x: -L4 * alpha4 * s4 - L4 * w4 * w4 * c4,
+        y:  L4 * alpha4 * c4 - L4 * w4 * w4 * s4
+      };
+      aB.mag = Math.hypot(aB.x, aB.y);
+
+      const aG2 = {
+        x: -rG2 * a2 * s2 - rG2 * w2 * w2 * c2,
+        y:  rG2 * a2 * c2 - rG2 * w2 * w2 * s2
+      };
+      aG2.mag = Math.hypot(aG2.x, aG2.y);
+
+      const aG3 = {
+        x: aA.x - rG3 * alpha3 * s3 - rG3 * w3 * w3 * c3,
+        y: aA.y + rG3 * alpha3 * c3 - rG3 * w3 * w3 * s3
+      };
+      aG3.mag = Math.hypot(aG3.x, aG3.y);
+
+      const aG4 = {
+        x: -rG4 * alpha4 * s4 - rG4 * w4 * w4 * c4,
+        y:  rG4 * alpha4 * c4 - rG4 * w4 * w4 * s4
+      };
+      aG4.mag = Math.hypot(aG4.x, aG4.y);
+
+      // 4. ANÁLISIS CINÉTICO (NEWTON-EULER 9x9)
+      const r12x = O2.x - G2.x, r12y = O2.y - G2.y;
+      const r32x = A_pt.x - G2.x, r32y = A_pt.y - G2.y;
+
+      const r23x = A_pt.x - G3.x, r23y = A_pt.y - G3.y;
+      const r43x = B_pt.x - G3.x, r43y = B_pt.y - G3.y;
+
+      const r34x = B_pt.x - G4.x, r34y = B_pt.y - G4.y;
+      const r14x = O4.x - G4.x, r14y = O4.y - G4.y;
+
+      const g = st.gravity;
+      const W2y = -st.m2 * g;
+      const W3y = -st.m3 * g;
+      const W4y = -st.m4 * g;
+
+      // Incógnitas: x = [F12x, F12y, F23x, F23y, F34x, F34y, F14x, F14y, T2]
+      const M9 = [
+        [1, 0, -1,  0,  0,  0, 0, 0, 0],
+        [0, 1,  0, -1,  0,  0, 0, 0, 0],
+        [-r12y, r12x, r32y, -r32x, 0, 0, 0, 0, 1],
+        [0, 0,  1,  0, -1,  0, 0, 0, 0],
+        [0, 0,  0,  1,  0, -1, 0, 0, 0],
+        [0, 0, -r23y, r23x, r43y, -r43x, 0, 0, 0],
+        [0, 0,  0,  0,  1,  0, 1, 0, 0],
+        [0, 0,  0,  0,  0,  1, 0, 1, 0],
+        [0, 0,  0,  0, -r34y, r34x, -r14y, r14x, 0]
+      ];
+
+      const rhs9 = [
+        st.m2 * aG2.x,
+        st.m2 * aG2.y - W2y,
+        st.I2 * a2,
+        st.m3 * aG3.x,
+        st.m3 * aG3.y - W3y,
+        st.I3 * alpha3 - st.T3,
+        st.m4 * aG4.x,
+        st.m4 * aG4.y - W4y,
+        st.I4 * alpha4 - st.T4
+      ];
+
+      const sol9 = solveLinearSystem(M9, rhs9);
+      if (!sol9) {
+        return { valid: false, reason: 'El sistema dinámico Newton-Euler 9×9 es singular en esta configuración.' };
+      }
+
+      const F12 = { x: sol9[0], y: sol9[1], mag: Math.hypot(sol9[0], sol9[1]) };
+      const F23 = { x: sol9[2], y: sol9[3], mag: Math.hypot(sol9[2], sol9[3]) };
+      const F34 = { x: sol9[4], y: sol9[5], mag: Math.hypot(sol9[4], sol9[5]) };
+      const F14 = { x: sol9[6], y: sol9[7], mag: Math.hypot(sol9[6], sol9[7]) };
+      const T2_req = sol9[8];
+      const residualT2 = st.T2_known - T2_req;
+
+      return {
+        valid: true,
+        pos: {
+          theta2, theta3, theta4,
+          K1, K2, K3, K4, K5,
+          A, B, C, D, E, F, disc3, disc4,
+          O2, O4, A_pt, B_pt, G2, G3, G4,
+          mu
+        },
+        vel: {
+          w2, w3, w4, detJ, J11, J12, J21, J22, rhsV1, rhsV2,
+          vA, vB, vBA, vG2, vG3, vG4
+        },
+        acc: {
+          a2, alpha3, alpha4, rhsA1, rhsA2,
+          aA, aB, aG2, aG3, aG4
+        },
+        kin: {
+          F12, F23, F34, F14, T2_req, residualT2,
+          W2y, W3y, W4y,
+          r12: { x: r12x, y: r12y },
+          r32: { x: r32x, y: r32y },
+          r23: { x: r23x, y: r23y },
+          r43: { x: r43x, y: r43y },
+          r34: { x: r34x, y: r34y },
+          r14: { x: r14x, y: r14y }
+        }
+      };
+    }
+
+    /**
+     * ============================================================================
+     * RENDERIZADO EN CANVAS 2D Y VECTORES NORMALIZADOS
+     * ============================================================================
+     */
+    const canvas = document.getElementById('mechCanvas');
+    const ctx = canvas.getContext('2d');
+    let latestSolution = null;
+
+    function resizeCanvas() {
+      const wrapper = document.getElementById('canvasWrapper');
+      const rect = wrapper.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      if (!state.view.initialized) {
+        centerView();
+        state.view.initialized = true;
+      }
+      renderCanvas();
+    }
+
+    function centerView() {
+      const wrapper = document.getElementById('canvasWrapper');
+      const rect = wrapper.getBoundingClientRect();
+      const midX = (state.x2 + state.x4) / 2;
+      const midY = (state.y2 + state.y4) / 2 + 0.06;
+      const span = Math.max(state.L1, state.L2 + state.L3, state.L4, 0.35);
+      state.view.scale = Math.min(rect.width, rect.height) / (span * 2.35);
+      state.view.offsetX = rect.width / 2 - midX * state.view.scale;
+      state.view.offsetY = rect.height * 0.58 + midY * state.view.scale;
+    }
+
+    function worldToScreen(wx, wy) {
+      return {
+        x: state.view.offsetX + wx * state.view.scale,
+        y: state.view.offsetY - wy * state.view.scale
+      };
+    }
+
+    function screenToWorld(sx, sy) {
+      return {
+        x: (sx - state.view.offsetX) / state.view.scale,
+        y: (state.view.offsetY - sy) / state.view.scale
+      };
+    }
+
+    /**
+     * Dibuja una flecha vectorial nítida en coordenadas de pantalla (píxeles)
+     * con cabeza de flecha rellena, soporte opcional de línea punteada y etiqueta con fondo legible.
+     */
+    function drawArrow(ctx, fromX, fromY, toX, toY, color, label, dashed = false, labelOffset = { x: 0, y: 0 }) {
+      const dx = toX - fromX;
+      const dy = toY - fromY;
+      const lenPx = Math.hypot(dx, dy);
+      if (lenPx < 4) return;
+
+      const angle = Math.atan2(dy, dx);
+      const headLen = Math.min(13, Math.max(8, lenPx * 0.24));
+      const headAngle = Math.PI / 6.5;
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (dashed) {
+        ctx.setLineDash([6, 4]);
+      }
+
+      const lineEndX = toX - (headLen * 0.72) * Math.cos(angle);
+      const lineEndY = toY - (headLen * 0.72) * Math.sin(angle);
+
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(lineEndX, lineEndY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Punta de flecha triangular rellena
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - headLen * Math.cos(angle - headAngle), toY - headLen * Math.sin(angle - headAngle));
+      ctx.lineTo(toX - headLen * Math.cos(angle + headAngle), toY - headLen * Math.sin(angle + headAngle));
+      ctx.closePath();
+      ctx.fill();
+
+      // Punto de anclaje en el origen del vector
+      ctx.beginPath();
+      ctx.arc(fromX, fromY, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Etiqueta con píldora semitransparente
+      if (label) {
+        ctx.font = '700 11px "JetBrains Mono", monospace';
+        const metrics = ctx.measureText(label);
+        const padX = 4;
+        const boxW = metrics.width + padX * 2;
+        const boxH = 16;
+
+        const pushDist = 12;
+        let lx = toX + pushDist * Math.cos(angle) + labelOffset.x;
+        let ly = toY + pushDist * Math.sin(angle) + labelOffset.y;
+
+        if (Math.cos(angle) < -0.2) lx -= boxW;
+        else if (Math.abs(Math.cos(angle)) <= 0.2) lx -= boxW / 2;
+
+        if (Math.sin(angle) < -0.2) ly -= 4;
+        else ly += boxH * 0.65;
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.beginPath();
+        ctx.roundRect(lx - padX, ly - 11.5, boxW, boxH, 4);
+        ctx.fill();
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = color;
+        ctx.fillText(label, lx, ly);
+      }
+
+      ctx.restore();
+    }
+
+    /**
+     * Calcula el desplazamiento en píxeles de pantalla para un vector físico (vx, vy)
+     * garantizando una longitud visual óptima entre minPx y maxPx.
+     */
+    function computeScaledScreenVector(vx, vy, maxCategoryMag, multiplier, minPx = 45, maxPx = 110) {
+      const mag = Math.hypot(vx, vy);
+      if (mag < 1e-6 || maxCategoryMag < 1e-6) return null;
+
+      const ratio = mag / maxCategoryMag;
+      const targetLenPx = (minPx + ratio * (maxPx - minPx)) * multiplier;
+      const ux = vx / mag;
+      const uy = vy / mag;
+
+      return {
+        dx: ux * targetLenPx,
+        dy: -uy * targetLenPx,
+        lenPx: targetLenPx,
+        pxPerUnit: targetLenPx / mag
+      };
+    }
+
+    function drawFixedSupport(wx, wy, label) {
+      const p = worldToScreen(wx, wy);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-13, 18);
+      ctx.lineTo(13, 18);
+      ctx.closePath();
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#334155';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(-18, 18);
+      ctx.lineTo(18, 18);
+      ctx.stroke();
+
+      ctx.lineWidth = 1.2;
+      for (let x = -14; x <= 14; x += 5) {
+        ctx.beginPath();
+        ctx.moveTo(x, 18);
+        ctx.lineTo(x - 4, 24);
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
+
+      ctx.font = '700 12px Inter, sans-serif';
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText(label, -9, 37);
+      ctx.restore();
+    }
+
+    function drawLink(p1w, p2w, color, widthPx = 8) {
+      const p1 = worldToScreen(p1w.x, p1w.y);
+      const p2 = worldToScreen(p2w.x, p2w.y);
+      ctx.save();
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineWidth = widthPx + 3;
+      ctx.strokeStyle = '#0f172a';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineWidth = widthPx;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPinJoint(wx, wy, label, offsetY = -12) {
+      const p = worldToScreen(wx, wy);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#0f172a';
+      ctx.stroke();
+
+      if (label) {
+        ctx.font = '700 12px Inter, sans-serif';
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(label, p.x - 5, p.y + offsetY);
+      }
+      ctx.restore();
+    }
+
+    function drawCGMarker(wx, wy, label) {
+      const p = worldToScreen(wx, wy);
+      const r = 5.5;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#0f172a';
+      ctx.stroke();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, r, 0, Math.PI / 2);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, r, Math.PI, 1.5 * Math.PI);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.font = '600 10px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#334155';
+      ctx.fillText(label, 8, -5);
+      ctx.restore();
+    }
+
+    function drawTorqueArc(wx, wy, torqueVal, color, label) {
+      if (Math.abs(torqueVal) < 0.05) return;
+      const p = worldToScreen(wx, wy);
+      const radius = 26;
+      const ccw = torqueVal > 0;
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2.2;
+
+      const startAngle = ccw ? -0.3 : 0.3;
+      const endAngle = ccw ? -1.4 * Math.PI : 1.4 * Math.PI;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, startAngle, endAngle, ccw);
+      ctx.stroke();
+
+      const tipX = p.x + radius * Math.cos(endAngle);
+      const tipY = p.y + radius * Math.sin(endAngle);
+      const tangent = endAngle + (ccw ? -Math.PI / 2 : Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(tipX - 7 * Math.cos(tangent - 0.4), tipY - 7 * Math.sin(tangent - 0.4));
+      ctx.lineTo(tipX - 7 * Math.cos(tangent + 0.4), tipY - 7 * Math.sin(tangent + 0.4));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.font = '600 10px "JetBrains Mono", monospace';
+      ctx.fillText(label, p.x - 28, p.y - radius - 6);
+      ctx.restore();
+    }
+
+    function renderCanvas() {
+      const wrapper = document.getElementById('canvasWrapper');
+      const rect = wrapper.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      // Ejes coordenados globales de referencia (X, Y)
+      const orig = worldToScreen(0, 0);
+      ctx.save();
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, orig.y);
+      ctx.lineTo(rect.width, orig.y);
+      ctx.moveTo(orig.x, 0);
+      ctx.lineTo(orig.x, rect.height);
+      ctx.stroke();
+      ctx.restore();
+
+      const sol = latestSolution;
+      const errOverlay = document.getElementById('assemblyErrorOverlay');
+      if (!sol || !sol.valid) {
+        errOverlay.classList.remove('hidden');
+        document.getElementById('assemblyErrorMsg').textContent = sol ? sol.reason : 'Error de configuración.';
+        drawFixedSupport(state.x2, state.y2, 'O₂');
+        drawFixedSupport(state.x4, state.y4, 'O₄');
+        return;
+      }
+      errOverlay.classList.add('hidden');
+
+      const { O2, O4, A_pt: A, B_pt: B, G2, G3, G4 } = sol.pos;
+      const pO2 = worldToScreen(O2.x, O2.y);
+      const pO4 = worldToScreen(O4.x, O4.y);
+
+      // 1. Bancada L1 (línea de centros)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(pO2.x, pO2.y);
+      ctx.lineTo(pO4.x, pO4.y);
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 5]);
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. Trayectoria acumulada de G3
+      if (state.layers.trace && state.tracePoints.length > 1) {
+        ctx.save();
+        ctx.beginPath();
+        state.tracePoints.forEach((pt, idx) => {
+          const sp = worldToScreen(pt.x, pt.y);
+          if (idx === 0) ctx.moveTo(sp.x, sp.y);
+          else ctx.lineTo(sp.x, sp.y);
+        });
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. Eslabones rígidos L2, L3, L4
+      drawLink(O2, A, '#3b82f6', 8);
+      drawLink(A, B, '#10b981', 8);
+      drawLink(O4, B, '#f59e0b', 8);
+
+      // 4. Soportes fijos
+      drawFixedSupport(O2.x, O2.y, 'O₂');
+      drawFixedSupport(O4.x, O4.y, 'O₄');
+
+      // 5. Articulaciones móviles
+      drawPinJoint(A.x, A.y, 'A', -12);
+      drawPinJoint(B.x, B.y, 'B', -12);
+
+      // 6. Centros de Gravedad
+      drawCGMarker(G2.x, G2.y, 'G₂');
+      drawCGMarker(G3.x, G3.y, 'G₃');
+      drawCGMarker(G4.x, G4.y, 'G₄');
+
+      // 7. Arcos de Torque
+      const T2_disp = state.solveT2 ? sol.kin.T2_req : state.T2_known;
+      drawTorqueArc(O2.x, O2.y, T2_disp, '#e11d48', `T₂=${T2_disp.toFixed(1)}Nm`);
+      drawTorqueArc(O4.x, O4.y, state.T4, '#d97706', `T₄=${state.T4.toFixed(1)}Nm`);
+
+      // 8. Capas de Vectores con Escalado Dinámico Normalizado en Pantalla
+      const mult = state.vecScale;
+      const pA = worldToScreen(A.x, A.y);
+      const pB = worldToScreen(B.x, B.y);
+      const pG2 = worldToScreen(G2.x, G2.y);
+      const pG3 = worldToScreen(G3.x, G3.y);
+      const pG4 = worldToScreen(G4.x, G4.y);
+
+      document.getElementById('leg_vel').classList.toggle('hidden', !state.layers.vel);
+      document.getElementById('leg_acc').classList.toggle('hidden', !state.layers.acc);
+      document.getElementById('leg_force').classList.toggle('hidden', !state.layers.force);
+      const anyLayer = state.layers.vel || state.layers.acc || state.layers.force;
+      document.getElementById('vectorLegend').classList.toggle('hidden', !anyLayer);
+
+      // CAPA 1: VECTORES DE VELOCIDAD (Cian / Azul brillante)
+      if (state.layers.vel) {
+        const maxVel = Math.max(
+          sol.vel.vA.mag,
+          sol.vel.vB.mag,
+          sol.vel.vG2.mag,
+          sol.vel.vG3.mag,
+          sol.vel.vG4.mag,
+          1e-6
+        );
+        const refPxPerUnit = (110 * mult) / maxVel;
+        document.getElementById('leg_vel_scale').textContent = `~${refPxPerUnit.toFixed(1)} px/(m/s)`;
+
+        const velItems = [
+          { origin: pA, vec: sol.vel.vA, lbl: `v_A=${sol.vel.vA.mag.toFixed(2)} m/s`, dashed: false, off: { x: 0, y: -6 } },
+          { origin: pB, vec: sol.vel.vB, lbl: `v_B=${sol.vel.vB.mag.toFixed(2)} m/s`, dashed: false, off: { x: 0, y: -6 } },
+          { origin: pG2, vec: sol.vel.vG2, lbl: `v_G2`, dashed: true, off: { x: 0, y: 0 } },
+          { origin: pG3, vec: sol.vel.vG3, lbl: `v_G3=${sol.vel.vG3.mag.toFixed(2)}`, dashed: true, off: { x: 0, y: 0 } },
+          { origin: pG4, vec: sol.vel.vG4, lbl: `v_G4`, dashed: true, off: { x: 0, y: 0 } }
+        ];
+
+        velItems.forEach(item => {
+          const sv = computeScaledScreenVector(item.vec.x, item.vec.y, maxVel, mult, 45, 110);
+          if (sv) {
+            drawArrow(ctx, item.origin.x, item.origin.y, item.origin.x + sv.dx, item.origin.y + sv.dy, '#0284c7', item.lbl, item.dashed, item.off);
+          }
+        });
+      }
+
+      // CAPA 2: VECTORES DE ACELERACIÓN (Ámbar / Naranja vibrante)
+      if (state.layers.acc) {
+        const maxAcc = Math.max(
+          sol.acc.aA.mag,
+          sol.acc.aB.mag,
+          sol.acc.aG3.mag,
+          1e-6
+        );
+        const refAccScale = (105 * mult) / maxAcc;
+        document.getElementById('leg_acc_scale').textContent = `~${refAccScale.toFixed(2)} px/(m/s²)`;
+
+        const accItems = [
+          { origin: pA, vec: sol.acc.aA, lbl: `a_A=${sol.acc.aA.mag.toFixed(1)} m/s²`, dashed: false, off: { x: 6, y: 12 } },
+          { origin: pB, vec: sol.acc.aB, lbl: `a_B=${sol.acc.aB.mag.toFixed(1)} m/s²`, dashed: false, off: { x: 6, y: 12 } },
+          { origin: pG3, vec: sol.acc.aG3, lbl: `a_G3=${sol.acc.aG3.mag.toFixed(1)}`, dashed: true, off: { x: 6, y: 10 } }
+        ];
+
+        accItems.forEach(item => {
+          const sa = computeScaledScreenVector(item.vec.x, item.vec.y, maxAcc, mult, 45, 105);
+          if (sa) {
+            drawArrow(ctx, item.origin.x, item.origin.y, item.origin.x + sa.dx, item.origin.y + sa.dy, '#d97706', item.lbl, item.dashed, item.off);
+          }
+        });
+      }
+
+      // CAPA 3: REACCIONES EN PASADORES (Rojo Coral de alto contraste)
+      if (state.layers.force) {
+        const maxForce = Math.max(
+          sol.kin.F12.mag,
+          sol.kin.F23.mag,
+          sol.kin.F34.mag,
+          sol.kin.F14.mag,
+          1e-6
+        );
+        const refForceScale = (110 * mult) / maxForce;
+        document.getElementById('leg_force_scale').textContent = `~${refForceScale.toFixed(2)} px/N`;
+
+        const forceItems = [
+          { origin: pO2, vec: sol.kin.F12, lbl: `F₁₂=${sol.kin.F12.mag.toFixed(1)} N`, off: { x: -4, y: 12 } },
+          { origin: pA,  vec: sol.kin.F23, lbl: `F₂₃=${sol.kin.F23.mag.toFixed(1)} N`, off: { x: -6, y: 14 } },
+          { origin: pB,  vec: sol.kin.F34, lbl: `F₃₄=${sol.kin.F34.mag.toFixed(1)} N`, off: { x: 6, y: 14 } },
+          { origin: pO4, vec: sol.kin.F14, lbl: `F₁₄=${sol.kin.F14.mag.toFixed(1)} N`, off: { x: 4, y: 12 } }
+        ];
+
+        forceItems.forEach(item => {
+          const sf = computeScaledScreenVector(item.vec.x, item.vec.y, maxForce, mult, 48, 110);
+          if (sf) {
+            drawArrow(ctx, item.origin.x, item.origin.y, item.origin.x + sf.dx, item.origin.y + sf.dy, '#e11d48', item.lbl, false, item.off);
+          }
+        });
+      }
+    }
+
+    /**
+     * ============================================================================
+     * ACTUALIZACIÓN DE INTERFAZ Y SOLUCIONADOR ANALÍTICO
+     * ============================================================================
+     */
+    function updateSolverUI(sol) {
+      const grashof = evaluateGrashof(state.L1, state.L2, state.L3, state.L4);
+      const banner = document.getElementById('statusBanner');
+      const gTitle = document.getElementById('grashofTitle');
+      const gDesc = document.getElementById('grashofDesc');
+      const cBadge = document.getElementById('circuitBadge');
+
+      cBadge.textContent = state.circuit === 1 ? 'Circuito Abierto (+)' : 'Circuito Cruzado (−)';
+
+      if (grashof.isGrashof) {
+        banner.className = 'bg-emerald-50 border border-emerald-300 rounded-lg p-2.5 text-xs shadow-sm';
+        gTitle.className = 'text-emerald-900';
+        gTitle.textContent = `✓ Grashof: ${grashof.type}`;
+        gDesc.className = 'text-emerald-800 mt-1 font-num text-[11px]';
+        gDesc.textContent = `s+l = ${(grashof.s + grashof.l).toFixed(3)} m ≤ p+q = ${(grashof.p + grashof.q).toFixed(3)} m`;
+      } else {
+        banner.className = 'bg-amber-50 border border-amber-300 rounded-lg p-2.5 text-xs shadow-sm';
+        gTitle.className = 'text-amber-900';
+        gTitle.textContent = `⚠ No-Grashof: ${grashof.type}`;
+        gDesc.className = 'text-amber-800 mt-1 font-num text-[11px]';
+        gDesc.textContent = `s+l = ${(grashof.s + grashof.l).toFixed(3)} m > p+q = ${(grashof.p + grashof.q).toFixed(3)} m`;
+      }
+
+      if (!sol || !sol.valid) {
+        document.getElementById('hud_t2').textContent = `${state.theta2Deg.toFixed(1)}°`;
+        document.getElementById('hud_t3').textContent = 'N/A';
+        document.getElementById('hud_t4').textContent = 'N/A';
+        document.getElementById('hud_w3').textContent = 'N/A';
+        document.getElementById('hud_w4').textContent = 'N/A';
+        document.getElementById('hud_T2').textContent = 'N/A';
+        document.getElementById('hud_mu').textContent = 'N/A';
+        return;
+      }
+
+      const { pos, vel, acc, kin } = sol;
+
+      if (state.hideHud) {
+        document.getElementById('hud_t2').textContent = `${state.theta2Deg.toFixed(1)}°`;
+        document.getElementById('hud_t3').textContent = '???';
+        document.getElementById('hud_t4').textContent = '???';
+        document.getElementById('hud_w3').textContent = '???';
+        document.getElementById('hud_w4').textContent = '???';
+        document.getElementById('hud_T2').textContent = '???';
+      } else {
+        document.getElementById('hud_t2').textContent = `${state.theta2Deg.toFixed(1)}°`;
+        document.getElementById('hud_t3').textContent = `${normalizeAngleDeg360(pos.theta3 * RAD2DEG).toFixed(2)}°`;
+        document.getElementById('hud_t4').textContent = `${normalizeAngleDeg360(pos.theta4 * RAD2DEG).toFixed(2)}°`;
+        document.getElementById('hud_w3').textContent = vel.w3.toFixed(3);
+        document.getElementById('hud_w4').textContent = vel.w4.toFixed(3);
+        document.getElementById('hud_T2').textContent = kin.T2_req.toFixed(3);
+      }
+      document.getElementById('hud_mu').textContent = `${(pos.mu * RAD2DEG).toFixed(1)}°`;
+
+      // Pestaña 1: Posición
+      document.getElementById('pos_constants').innerHTML = `
+        <div>K₁ = L₁/L₂ = <b>${pos.K1.toFixed(4)}</b></div>
+        <div>K₂ = L₁/L₄ = <b>${pos.K2.toFixed(4)}</b></div>
+        <div>K₃ = <b>${pos.K3.toFixed(4)}</b></div>
+        <div>K₄ = L₁/L₃ = <b>${pos.K4.toFixed(4)}</b></div>
+        <div>K₅ = <b>${pos.K5.toFixed(4)}</b></div>
+        <div>Δ₄ = B²−4AC = <b>${pos.disc4.toFixed(4)}</b></div>
+      `;
+
+      const t3Deg360 = normalizeAngleDeg360(pos.theta3 * RAD2DEG);
+      const t4Deg360 = normalizeAngleDeg360(pos.theta4 * RAD2DEG);
+      document.getElementById('pos_angles').innerHTML = `
+        <div class="flex justify-between py-0.5 border-b border-slate-100">
+          <span>Bancada θ₁:</span>
+          <b>${(state.theta1 * RAD2DEG).toFixed(2)}° (${state.theta1.toFixed(4)} rad)</b>
+        </div>
+        <div class="flex justify-between py-0.5 border-b border-slate-100 text-blue-800">
+          <span>Manivela θ₂:</span>
+          <b>${state.theta2Deg.toFixed(2)}° (${pos.theta2.toFixed(4)} rad)</b>
+        </div>
+        <div class="flex justify-between py-0.5 border-b border-slate-100 text-emerald-800">
+          <span>Acoplador θ₃:</span>
+          <b>${t3Deg360.toFixed(2)}° (${pos.theta3.toFixed(4)} rad)</b>
+        </div>
+        <div class="flex justify-between py-0.5 border-b border-slate-100 text-amber-800">
+          <span>Balancín θ₄:</span>
+          <b>${t4Deg360.toFixed(2)}° (${pos.theta4.toFixed(4)} rad)</b>
+        </div>
+        <div class="flex justify-between py-0.5 text-slate-700">
+          <span>Ángulo de Transmisión μ:</span>
+          <b>${(pos.mu * RAD2DEG).toFixed(2)}°</b>
+        </div>
+      `;
+
+      document.getElementById('pos_coords').innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-300 text-slate-600">
+              <th class="py-1">Punto</th>
+              <th class="py-1">X (m)</th>
+              <th class="py-1">Y (m)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr><td class="py-1 font-bold">O₂</td><td>${pos.O2.x.toFixed(4)}</td><td>${pos.O2.y.toFixed(4)}</td></tr>
+            <tr><td class="py-1 font-bold text-blue-700">A (L₂∩L₃)</td><td>${pos.A_pt.x.toFixed(4)}</td><td>${pos.A_pt.y.toFixed(4)}</td></tr>
+            <tr><td class="py-1 font-bold text-amber-700">B (L₃∩L₄)</td><td>${pos.B_pt.x.toFixed(4)}</td><td>${pos.B_pt.y.toFixed(4)}</td></tr>
+            <tr><td class="py-1 font-bold">O₄</td><td>${pos.O4.x.toFixed(4)}</td><td>${pos.O4.y.toFixed(4)}</td></tr>
+            <tr><td class="py-1 text-slate-600">G₂</td><td>${pos.G2.x.toFixed(4)}</td><td>${pos.G2.y.toFixed(4)}</td></tr>
+            <tr><td class="py-1 text-slate-600">G₃</td><td>${pos.G3.x.toFixed(4)}</td><td>${pos.G3.y.toFixed(4)}</td></tr>
+            <tr><td class="py-1 text-slate-600">G₄</td><td>${pos.G4.x.toFixed(4)}</td><td>${pos.G4.y.toFixed(4)}</td></tr>
+          </tbody>
+        </table>
+      `;
+
+      // Pestaña 2: Velocidades
+      document.getElementById('vel_matrix').innerHTML = `
+        <div>[ ${vel.J11.toFixed(4)} &nbsp; ${vel.J12.toFixed(4)} ] [ ω₃ ] = [ ${vel.rhsV1.toFixed(4)} ]</div>
+        <div>[ ${vel.J21.toFixed(4)} &nbsp; ${vel.J22.toFixed(4)} ] [ ω₄ ] &nbsp; [ ${vel.rhsV2.toFixed(4)} ]</div>
+        <div class="text-[10px] text-slate-500 mt-1">det(J) = ${vel.detJ.toFixed(5)} m²</div>
+      `;
+
+      document.getElementById('vel_omegas').innerHTML = `
+        <div>ω₃ = ${vel.w3.toFixed(4)} rad/s (${(vel.w3 * 9.5493).toFixed(1)} RPM)</div>
+        <div>ω₄ = ${vel.w4.toFixed(4)} rad/s (${(vel.w4 * 9.5493).toFixed(1)} RPM)</div>
+      `;
+
+      document.getElementById('vel_linear').innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-300 text-slate-600">
+              <th class="py-1">Vector</th>
+              <th class="py-1">v_x (m/s)</th>
+              <th class="py-1">v_y (m/s)</th>
+              <th class="py-1">|v| (m/s)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr><td class="py-1 font-bold text-blue-700">v_A</td><td>${vel.vA.x.toFixed(4)}</td><td>${vel.vA.y.toFixed(4)}</td><td><b>${vel.vA.mag.toFixed(4)}</b></td></tr>
+            <tr><td class="py-1 font-bold text-amber-700">v_B</td><td>${vel.vB.x.toFixed(4)}</td><td>${vel.vB.y.toFixed(4)}</td><td><b>${vel.vB.mag.toFixed(4)}</b></td></tr>
+            <tr><td class="py-1">v_G2</td><td>${vel.vG2.x.toFixed(4)}</td><td>${vel.vG2.y.toFixed(4)}</td><td>${vel.vG2.mag.toFixed(4)}</td></tr>
+            <tr><td class="py-1">v_G3</td><td>${vel.vG3.x.toFixed(4)}</td><td>${vel.vG3.y.toFixed(4)}</td><td>${vel.vG3.mag.toFixed(4)}</td></tr>
+            <tr><td class="py-1">v_G4</td><td>${vel.vG4.x.toFixed(4)}</td><td>${vel.vG4.y.toFixed(4)}</td><td>${vel.vG4.mag.toFixed(4)}</td></tr>
+          </tbody>
+        </table>
+      `;
+
+      // Pestaña 3: Aceleraciones
+      document.getElementById('acc_matrix').innerHTML = `
+        <div>[ ${vel.J11.toFixed(4)} &nbsp; ${vel.J12.toFixed(4)} ] [ α₃ ] = [ ${acc.rhsA1.toFixed(4)} ]</div>
+        <div>[ ${vel.J21.toFixed(4)} &nbsp; ${vel.J22.toFixed(4)} ] [ α₄ ] &nbsp; [ ${acc.rhsA2.toFixed(4)} ]</div>
+      `;
+
+      document.getElementById('acc_alphas').innerHTML = `
+        <div>α₃ = ${acc.alpha3.toFixed(4)} rad/s²</div>
+        <div>α₄ = ${acc.alpha4.toFixed(4)} rad/s²</div>
+      `;
+
+      document.getElementById('acc_linear').innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-300 text-slate-600">
+              <th class="py-1">Vector</th>
+              <th class="py-1">a_x (m/s²)</th>
+              <th class="py-1">a_y (m/s²)</th>
+              <th class="py-1">|a| (m/s²)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr><td class="py-1 font-bold text-blue-700">a_A</td><td>${acc.aA.x.toFixed(3)}</td><td>${acc.aA.y.toFixed(3)}</td><td><b>${acc.aA.mag.toFixed(3)}</b></td></tr>
+            <tr><td class="py-1 font-bold text-amber-700">a_B</td><td>${acc.aB.x.toFixed(3)}</td><td>${acc.aB.y.toFixed(3)}</td><td><b>${acc.aB.mag.toFixed(3)}</b></td></tr>
+            <tr><td class="py-1">a_G2</td><td>${acc.aG2.x.toFixed(3)}</td><td>${acc.aG2.y.toFixed(3)}</td><td>${acc.aG2.mag.toFixed(3)}</td></tr>
+            <tr><td class="py-1">a_G3</td><td>${acc.aG3.x.toFixed(3)}</td><td>${acc.aG3.y.toFixed(3)}</td><td>${acc.aG3.mag.toFixed(3)}</td></tr>
+            <tr><td class="py-1">a_G4</td><td>${acc.aG4.x.toFixed(3)}</td><td>${acc.aG4.y.toFixed(3)}</td><td>${acc.aG4.mag.toFixed(3)}</td></tr>
+          </tbody>
+        </table>
+      `;
+
+      // Pestaña 4: Cinética
+      const powerMotor = kin.T2_req * vel.w2;
+      let torqueHtml = `
+        <div class="text-slate-400 text-[10px] font-sans uppercase tracking-wider">Torque Requerido en Eslabón Motor (L₂)</div>
+        <div class="text-base font-bold text-rose-400 mt-0.5">T₂ = ${kin.T2_req.toFixed(4)} N·m <span class="text-xs font-normal text-slate-300">(${kin.T2_req >= 0 ? 'CCW' : 'CW'})</span></div>
+        <div class="text-[11px] text-slate-300 mt-1">Potencia instantánea P₂ = T₂·ω₂ = <b>${powerMotor.toFixed(2)} W</b></div>
+      `;
+      if (!state.solveT2) {
+        torqueHtml += `
+          <div class="mt-2 pt-2 border-t border-slate-700 text-[11px] text-amber-300">
+            Torque aplicado conocido T₂ = ${state.T2_known.toFixed(3)} N·m<br>
+            Desbalance / Residuo ΔT = <b>${kin.residualT2.toFixed(4)} N·m</b>
+          </div>
+        `;
+      }
+      document.getElementById('kin_torque_summary').innerHTML = torqueHtml;
+
+      document.getElementById('kin_forces').innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-300 text-slate-600">
+              <th class="py-1">Fuerza</th>
+              <th class="py-1">F_x (N)</th>
+              <th class="py-1">F_y (N)</th>
+              <th class="py-1">|F| (N)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr><td class="py-1 font-bold">F₁₂ (O₂)</td><td>${kin.F12.x.toFixed(3)}</td><td>${kin.F12.y.toFixed(3)}</td><td><b>${kin.F12.mag.toFixed(3)}</b></td></tr>
+            <tr><td class="py-1 font-bold text-blue-700">F₂₃ (A)</td><td>${kin.F23.x.toFixed(3)}</td><td>${kin.F23.y.toFixed(3)}</td><td><b>${kin.F23.mag.toFixed(3)}</b></td></tr>
+            <tr><td class="py-1 font-bold text-emerald-700">F₃₄ (B)</td><td>${kin.F34.x.toFixed(3)}</td><td>${kin.F34.y.toFixed(3)}</td><td><b>${kin.F34.mag.toFixed(3)}</b></td></tr>
+            <tr><td class="py-1 font-bold text-amber-700">F₁₄ (O₄)</td><td>${kin.F14.x.toFixed(3)}</td><td>${kin.F14.y.toFixed(3)}</td><td><b>${kin.F14.mag.toFixed(3)}</b></td></tr>
+          </tbody>
+        </table>
+      `;
+
+      document.getElementById('kin_fbd_equations').innerHTML = `
+        <div class="bg-blue-50/60 border border-blue-200 rounded p-2">
+          <div class="font-bold text-blue-900">Eslabón 2 (Manivela):</div>
+          <div>m₂·a_G2 = (${(state.m2 * acc.aG2.x).toFixed(2)}, ${(state.m2 * acc.aG2.y).toFixed(2)}) N</div>
+          <div>I₂·α₂ = ${(state.I2 * acc.a2).toFixed(4)} N·m | Peso W₂y = ${kin.W2y.toFixed(2)} N</div>
+        </div>
+        <div class="bg-emerald-50/60 border border-emerald-200 rounded p-2">
+          <div class="font-bold text-emerald-900">Eslabón 3 (Acoplador):</div>
+          <div>m₃·a_G3 = (${(state.m3 * acc.aG3.x).toFixed(2)}, ${(state.m3 * acc.aG3.y).toFixed(2)}) N</div>
+          <div>I₃·α₃ = ${(state.I3 * acc.alpha3).toFixed(4)} N·m | Peso W₃y = ${kin.W3y.toFixed(2)} N</div>
+        </div>
+        <div class="bg-amber-50/60 border border-amber-200 rounded p-2">
+          <div class="font-bold text-amber-900">Eslabón 4 (Balancín):</div>
+          <div>m₄·a_G4 = (${(state.m4 * acc.aG4.x).toFixed(2)}, ${(state.m4 * acc.aG4.y).toFixed(2)}) N</div>
+          <div>I₄·α₄ = ${(state.I4 * acc.alpha4).toFixed(4)} N·m | Peso W₄y = ${kin.W4y.toFixed(2)} N</div>
+        </div>
+      `;
+    }
+
+    /**
+     * ============================================================================
+     * SINCRONIZACIÓN DE ENTRADAS Y BUCLE DE SIMULACIÓN
+     * ============================================================================
+     */
+    function syncInputsFromState() {
+      document.getElementById('in_x2').value = state.x2.toFixed(3);
+      document.getElementById('in_y2').value = state.y2.toFixed(3);
+      document.getElementById('in_x4').value = state.x4.toFixed(3);
+      document.getElementById('in_y4').value = state.y4.toFixed(3);
+      document.getElementById('in_L1').value = state.L1.toFixed(3);
+      document.getElementById('in_theta1').value = (state.theta1 * RAD2DEG).toFixed(2);
+      document.getElementById('in_L2').value = state.L2.toFixed(3);
+      document.getElementById('in_L3').value = state.L3.toFixed(3);
+      document.getElementById('in_L4').value = state.L4.toFixed(3);
+      document.getElementById('in_circuit').value = String(state.circuit);
+
+      document.getElementById('in_theta2').value = state.theta2Deg.toFixed(1);
+      document.getElementById('slider_theta2').value = normalizeAngleDeg360(state.theta2Deg);
+      document.getElementById('in_omega2').value = state.omega2;
+      document.getElementById('in_alpha2').value = state.alpha2;
+
+      document.getElementById('in_m2').value = state.m2;
+      document.getElementById('in_m3').value = state.m3;
+      document.getElementById('in_m4').value = state.m4;
+      document.getElementById('in_cg2').value = state.cg2;
+      document.getElementById('in_cg3').value = state.cg3;
+      document.getElementById('in_cg4').value = state.cg4;
+      document.getElementById('in_gravity').value = String(state.gravity);
+
+      if (state.autoInertia) {
+        state.I2 = (1 / 12) * state.m2 * state.L2 * state.L2;
+        state.I3 = (1 / 12) * state.m3 * state.L3 * state.L3;
+        state.I4 = (1 / 12) * state.m4 * state.L4 * state.L4;
+      }
+      document.getElementById('in_I2').value = state.I2.toFixed(5);
+      document.getElementById('in_I3').value = state.I3.toFixed(5);
+      document.getElementById('in_I4').value = state.I4.toFixed(5);
+
+      document.getElementById('in_I2').disabled = state.autoInertia;
+      document.getElementById('in_I3').disabled = state.autoInertia;
+      document.getElementById('in_I4').disabled = state.autoInertia;
+
+      document.getElementById('in_T3').value = state.T3;
+      document.getElementById('in_T4').value = state.T4;
+      document.getElementById('in_T2_known').value = state.T2_known;
+    }
+
+    function recomputeAndRender(recordTrace = false) {
+      if (state.autoInertia) {
+        state.I2 = (1 / 12) * state.m2 * state.L2 * state.L2;
+        state.I3 = (1 / 12) * state.m3 * state.L3 * state.L3;
+        state.I4 = (1 / 12) * state.m4 * state.L4 * state.L4;
+        document.getElementById('in_I2').value = state.I2.toFixed(5);
+        document.getElementById('in_I3').value = state.I3.toFixed(5);
+        document.getElementById('in_I4').value = state.I4.toFixed(5);
+      }
+
+      latestSolution = solveMechanism(state);
+      if (recordTrace && latestSolution && latestSolution.valid) {
+        state.tracePoints.push({ x: latestSolution.pos.G3.x, y: latestSolution.pos.G3.y });
+        if (state.tracePoints.length > 600) state.tracePoints.shift();
+      }
+      updateSolverUI(latestSolution);
+      renderCanvas();
+    }
+
+    function updateGroundFromCoords() {
+      const dx = state.x4 - state.x2;
+      const dy = state.y4 - state.y2;
+      state.L1 = Math.max(0.01, Math.hypot(dx, dy));
+      state.theta1 = Math.atan2(dy, dx);
+      document.getElementById('in_L1').value = state.L1.toFixed(3);
+      document.getElementById('in_theta1').value = (state.theta1 * RAD2DEG).toFixed(2);
+      state.tracePoints = [];
+      recomputeAndRender(false);
+    }
+
+    function updateGroundFromPolar() {
+      state.x4 = state.x2 + state.L1 * Math.cos(state.theta1);
+      state.y4 = state.y2 + state.L1 * Math.sin(state.theta1);
+      document.getElementById('in_x4').value = state.x4.toFixed(3);
+      document.getElementById('in_y4').value = state.y4.toFixed(3);
+      state.tracePoints = [];
+      recomputeAndRender(false);
+    }
+
+    function loadPreset(key) {
+      const p = PRESETS[key];
+      if (!p) return;
+      Object.assign(state, p);
+      state.L1 = Math.hypot(state.x4 - state.x2, state.y4 - state.y2);
+      state.theta1 = Math.atan2(state.y4 - state.y2, state.x4 - state.x2);
+      state.tracePoints = [];
+      syncInputsFromState();
+      centerView();
+      recomputeAndRender(false);
+    }
+
+    function animationLoop(timestamp) {
+      if (state.playing) {
+        if (state.lastTimestamp !== null) {
+          const dt = Math.min(0.05, (timestamp - state.lastTimestamp) / 1000);
+          const w_eff = Math.abs(state.omega2) < 0.05 ? 3.0 : state.omega2;
+          state.theta2Deg = normalizeAngleDeg360(state.theta2Deg + (w_eff * RAD2DEG) * dt);
+          document.getElementById('in_theta2').value = state.theta2Deg.toFixed(1);
+          document.getElementById('slider_theta2').value = state.theta2Deg;
+          recomputeAndRender(true);
+        }
+        state.lastTimestamp = timestamp;
+        requestAnimationFrame(animationLoop);
+      } else {
+        state.lastTimestamp = null;
+      }
+    }
+
+    function bindEvents() {
+      // Presets
+      document.getElementById('presetSelect').addEventListener('change', (e) => loadPreset(e.target.value));
+      document.getElementById('btnResetView').addEventListener('click', () => {
+        centerView();
+        renderCanvas();
+      });
+
+      // Coordenadas O2 y O4
+      ['x2', 'y2', 'x4', 'y4'].forEach(id => {
+        document.getElementById(`in_${id}`).addEventListener('input', (e) => {
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v)) {
+            state[id] = v;
+            updateGroundFromCoords();
+          }
+        });
+      });
+
+      // Bancada polar L1 y theta1
+      document.getElementById('in_L1').addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v) && v > 0.005) {
+          state.L1 = v;
+          updateGroundFromPolar();
+        }
+      });
+      document.getElementById('in_theta1').addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v)) {
+          state.theta1 = v * DEG2RAD;
+          updateGroundFromPolar();
+        }
+      });
+
+      // Eslabones L2, L3, L4 y circuito
+      ['L2', 'L3', 'L4'].forEach(id => {
+        document.getElementById(`in_${id}`).addEventListener('input', (e) => {
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v) && v > 0.005) {
+            state[id] = v;
+            state.tracePoints = [];
+            recomputeAndRender(false);
+          }
+        });
+      });
+
+      document.getElementById('in_circuit').addEventListener('change', (e) => {
+        state.circuit = parseInt(e.target.value, 10);
+        state.tracePoints = [];
+        recomputeAndRender(false);
+      });
+
+      // Cinemática de entrada
+      document.getElementById('in_theta2').addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v)) {
+          state.theta2Deg = v;
+          document.getElementById('slider_theta2').value = normalizeAngleDeg360(v);
+          recomputeAndRender(true);
+        }
+      });
+      document.getElementById('slider_theta2').addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        state.theta2Deg = v;
+        document.getElementById('in_theta2').value = v.toFixed(1);
+        recomputeAndRender(true);
+      });
+      document.getElementById('in_omega2').addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v)) {
+          state.omega2 = v;
+          recomputeAndRender(false);
+        }
+      });
+      document.getElementById('in_alpha2').addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v)) {
+          state.alpha2 = v;
+          recomputeAndRender(false);
+        }
+      });
+
+      // Masas, inercias, CG y gravedad
+      document.getElementById('chk_autoInertia').addEventListener('change', (e) => {
+        state.autoInertia = e.target.checked;
+        syncInputsFromState();
+        recomputeAndRender(false);
+      });
+      document.getElementById('in_gravity').addEventListener('change', (e) => {
+        state.gravity = parseFloat(e.target.value);
+        recomputeAndRender(false);
+      });
+
+      ['m2', 'm3', 'm4', 'I2', 'I3', 'I4', 'cg2', 'cg3', 'cg4'].forEach(id => {
+        document.getElementById(`in_${id}`).addEventListener('input', (e) => {
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v) && v >= 0) {
+            state[id] = v;
+            recomputeAndRender(false);
+          }
+        });
+      });
+
+      // Torques
+      ['T3', 'T4'].forEach(id => {
+        document.getElementById(`in_${id}`).addEventListener('input', (e) => {
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v)) {
+            state[id] = v;
+            recomputeAndRender(false);
+          }
+        });
+      });
+
+      document.getElementById('chk_solveT2').addEventListener('change', (e) => {
+        state.solveT2 = e.target.checked;
+        document.getElementById('knownT2Container').classList.toggle('hidden', state.solveT2);
+        recomputeAndRender(false);
+      });
+
+      document.getElementById('in_T2_known').addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v)) {
+          state.T2_known = v;
+          recomputeAndRender(false);
+        }
+      });
+
+      // Reproducción
+      document.getElementById('btnPlayPause').addEventListener('click', () => {
+        state.playing = !state.playing;
+        document.getElementById('playIcon').textContent = state.playing ? '⏸' : '▶';
+        document.getElementById('playText').textContent = state.playing ? 'Pausar' : 'Simular';
+        if (state.playing) requestAnimationFrame(animationLoop);
+      });
+
+      document.getElementById('btnStepBack').addEventListener('click', () => {
+        state.theta2Deg = normalizeAngleDeg360(state.theta2Deg - 1);
+        document.getElementById('in_theta2').value = state.theta2Deg.toFixed(1);
+        document.getElementById('slider_theta2').value = state.theta2Deg;
+        recomputeAndRender(true);
+      });
+
+      document.getElementById('btnStepFwd').addEventListener('click', () => {
+        state.theta2Deg = normalizeAngleDeg360(state.theta2Deg + 1);
+        document.getElementById('in_theta2').value = state.theta2Deg.toFixed(1);
+        document.getElementById('slider_theta2').value = state.theta2Deg;
+        recomputeAndRender(true);
+      });
+
+      document.getElementById('btnClearTrace').addEventListener('click', () => {
+        state.tracePoints = [];
+        renderCanvas();
+      });
+
+      // Capas y escala vectorial
+      document.getElementById('layerVel').addEventListener('change', (e) => {
+        state.layers.vel = e.target.checked;
+        renderCanvas();
+      });
+      document.getElementById('layerAcc').addEventListener('change', (e) => {
+        state.layers.acc = e.target.checked;
+        renderCanvas();
+      });
+      document.getElementById('layerForce').addEventListener('change', (e) => {
+        state.layers.force = e.target.checked;
+        renderCanvas();
+      });
+      document.getElementById('layerTrace').addEventListener('change', (e) => {
+        state.layers.trace = e.target.checked;
+        renderCanvas();
+      });
+
+      document.getElementById('vecScaleSlider').addEventListener('input', (e) => {
+        state.vecScale = parseFloat(e.target.value);
+        document.getElementById('vecScaleVal').textContent = `${state.vecScale.toFixed(1)}x`;
+        renderCanvas();
+      });
+
+      // Pan y Zoom en el Canvas
+      let isPanning = false;
+      let panStart = { x: 0, y: 0 };
+
+      canvas.addEventListener('mousedown', (e) => {
+        isPanning = true;
+        panStart = { x: e.clientX - state.view.offsetX, y: e.clientY - state.view.offsetY };
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        state.view.offsetX = e.clientX - panStart.x;
+        state.view.offsetY = e.clientY - panStart.y;
+        renderCanvas();
+      });
+      window.addEventListener('mouseup', () => {
+        isPanning = false;
+      });
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const worldBefore = screenToWorld(mx, my);
+
+        const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
+        state.view.scale = Math.max(80, Math.min(3500, state.view.scale * zoomFactor));
+
+        state.view.offsetX = mx - worldBefore.x * state.view.scale;
+        state.view.offsetY = my + worldBefore.y * state.view.scale;
+        renderCanvas();
+      }, { passive: false });
+
+      // Navegación de Pestañas
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('active', 'bg-white', 'text-blue-700', 'border-slate-300');
+            b.classList.add('border-transparent');
+          });
+          btn.classList.add('active', 'bg-white', 'text-blue-700', 'border-slate-300');
+          btn.classList.remove('border-transparent');
+
+          const target = btn.getAttribute('data-tab');
+          document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.toggle('hidden', pane.id !== target);
+          });
+        });
+      });
+
+      // Modo Práctica / Autoevaluación
+      document.getElementById('chk_hideHud').addEventListener('change', (e) => {
+        state.hideHud = e.target.checked;
+        updateSolverUI(latestSolution);
+      });
+
+      document.getElementById('btnGenProblem').addEventListener('click', () => {
+        const L1 = +(0.30 + Math.random() * 0.20).toFixed(2);
+        const L2 = +(0.10 + Math.random() * 0.08).toFixed(2);
+        const L4 = +(0.20 + Math.random() * 0.12).toFixed(2);
+        const minL3 = Math.max(0.18, Math.abs(L1 - L2 - L4) + 0.06);
+        const L3 = +(minL3 + Math.random() * 0.12).toFixed(2);
+
+        state.x2 = 0;
+        state.y2 = 0;
+        state.x4 = L1;
+        state.y4 = 0;
+        state.L1 = L1;
+        state.theta1 = 0;
+        state.L2 = L2;
+        state.L3 = L3;
+        state.L4 = L4;
+        state.circuit = 1;
+        state.theta2Deg = Math.floor(25 + Math.random() * 300);
+        state.omega2 = Math.floor(5 + Math.random() * 12);
+        state.alpha2 = Math.floor(-15 + Math.random() * 30);
+        state.m2 = +(0.8 + Math.random() * 1.2).toFixed(1);
+        state.m3 = +(1.5 + Math.random() * 2.0).toFixed(1);
+        state.m4 = +(1.2 + Math.random() * 1.5).toFixed(1);
+        state.T3 = 0;
+        state.T4 = Math.floor(-25 + Math.random() * 50);
+        state.tracePoints = [];
+
+        syncInputsFromState();
+        centerView();
+        recomputeAndRender(false);
+        document.getElementById('btnClearQuiz').click();
+      });
+
+      document.getElementById('btnClearQuiz').addEventListener('click', () => {
+        ['t3', 't4', 'w3', 'w4', 'a3', 'a4', 'F14', 'T2'].forEach(k => {
+          document.getElementById(`ans_${k}`).value = '';
+          const fb = document.getElementById(`fb_${k}`);
+          fb.textContent = '';
+          fb.className = 'text-[10px] mt-1 font-medium';
+        });
+      });
+
+      document.getElementById('quizForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!latestSolution || !latestSolution.valid) return;
+
+        const expected = {
+          t3: normalizeAngleDeg360(latestSolution.pos.theta3 * RAD2DEG),
+          t4: normalizeAngleDeg360(latestSolution.pos.theta4 * RAD2DEG),
+          w3: latestSolution.vel.w3,
+          w4: latestSolution.vel.w4,
+          a3: latestSolution.acc.alpha3,
+          a4: latestSolution.acc.alpha4,
+          F14: latestSolution.kin.F14.mag,
+          T2: latestSolution.kin.T2_req
+        };
+
+        Object.keys(expected).forEach(k => {
+          const raw = document.getElementById(`ans_${k}`).value;
+          const fb = document.getElementById(`fb_${k}`);
+          if (raw === '') {
+            fb.textContent = 'Sin responder';
+            fb.className = 'text-[10px] mt-1 text-slate-400';
+            return;
+          }
+          const userVal = parseFloat(raw);
+          const refVal = expected[k];
+          const tol = Math.max(0.02 * Math.abs(refVal), 0.05);
+          const diff = Math.abs(userVal - refVal);
+
+          if (diff <= tol) {
+            fb.textContent = `✓ Correcto (${refVal.toFixed(2)})`;
+            fb.className = 'text-[10px] mt-1 font-semibold text-emerald-700';
+          } else {
+            fb.textContent = `✗ Incorrecto (Esperado: ${refVal.toFixed(2)})`;
+            fb.className = 'text-[10px] mt-1 font-semibold text-rose-600';
+          }
+        });
+      });
+
+      window.addEventListener('resize', resizeCanvas);
+    }
+
+    window.onload = function () {
+      bindEvents();
+      syncInputsFromState();
+      resizeCanvas();
+      recomputeAndRender(true);
+    };
+  </script>
+</body>
+</html>
