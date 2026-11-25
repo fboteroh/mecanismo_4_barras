@@ -1,0 +1,1 @@
+# mecanismo_4_barras
